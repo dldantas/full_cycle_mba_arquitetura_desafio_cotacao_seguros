@@ -1,0 +1,13 @@
+$ docker compose logs -t quotation-api | grep "circuit breaker"
+# mesma sessao de breaker-make-load-sequencial.txt; horarios em UTC
+2026-10-14T04:05:26.459437337Z 2026/10/14 04:05:26 circuit breaker partner-flaky: closed -> open
+2026-10-14T04:05:37.498810569Z 2026/10/14 04:05:37 circuit breaker partner-flaky: open -> half_open
+2026-10-14T04:05:37.679943270Z 2026/10/14 04:05:37 circuit breaker partner-flaky: half_open -> open
+2026-10-14T04:05:48.718781046Z 2026/10/14 04:05:48 circuit breaker partner-flaky: open -> half_open
+2026-10-14T04:05:48.906841014Z 2026/10/14 04:05:48 circuit breaker partner-flaky: half_open -> open
+2026-10-14T04:06:00.049632781Z 2026/10/14 04:06:00 circuit breaker partner-flaky: open -> half_open
+2026-10-14T04:06:00.239310361Z 2026/10/14 04:06:00 circuit breaker partner-flaky: half_open -> open
+2026-10-14T04:06:11.467711926Z 2026/10/14 04:06:11 circuit breaker partner-flaky: open -> half_open
+2026-10-14T04:06:13.247451570Z 2026/10/14 04:06:13 circuit breaker partner-flaky: half_open -> open
+2026-10-14T04:06:24.453472683Z 2026/10/14 04:06:24 circuit breaker partner-flaky: open -> half_open
+2026-10-14T04:06:26.139085508Z 2026/10/14 04:06:26 circuit breaker partner-flaky: half_open -> closed

@@ -3,6 +3,7 @@ package platform
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func env(pairs map[string]string) func(string) string {
@@ -114,6 +115,71 @@ func TestInvalidConfigFails(t *testing.T) {
 		"OTEL_SDK_DISABLED is not a boolean": {"OTEL_SDK_DISABLED": "maybe"},
 	}
 
+	for name, vars := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := LoadConfig(env(vars)); err == nil {
+				t.Fatalf("invalid configuration (%v) was accepted", vars)
+			}
+		})
+	}
+}
+
+func TestResilienceDefaultsAreTheSADNumbers(t *testing.T) {
+	cfg, err := LoadConfig(env(nil))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	want := Resilience{
+		PartnerTimeout:       2 * time.Second,
+		BreakerFailures:      6,
+		BreakerOpenFor:       10 * time.Second,
+		BreakerHalfOpenCalls: 2,
+		CacheTTL:             time.Hour,
+		RedisAddr:            "localhost:6379",
+	}
+	if cfg.Resilience != want {
+		t.Errorf("resilience %+v, want the docs/sad.md values %+v", cfg.Resilience, want)
+	}
+}
+
+func TestResilienceReadsTheEnvironment(t *testing.T) {
+	cfg, err := LoadConfig(env(map[string]string{
+		"PARTNER_TIMEOUT":              "1500ms",
+		"BREAKER_CONSECUTIVE_FAILURES": "8",
+		"BREAKER_OPEN_DURATION":        "30s",
+		"BREAKER_HALF_OPEN_MAX_CALLS":  "3",
+		"CACHE_TTL":                    "15m",
+		"REDIS_ADDR":                   "redis:6379",
+	}))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	want := Resilience{1500 * time.Millisecond, 8, 30 * time.Second, 3, 15 * time.Minute, "redis:6379"}
+	if cfg.Resilience != want {
+		t.Errorf("resilience %+v, want %+v", cfg.Resilience, want)
+	}
+}
+
+func TestCacheTTLCannotPassTheCommercialCeiling(t *testing.T) {
+	if _, err := LoadConfig(env(map[string]string{"CACHE_TTL": "24h1s"})); err == nil {
+		t.Fatal("a TTL above 24h was accepted: that is a quote no insurer honours")
+	}
+	if _, err := LoadConfig(env(map[string]string{"CACHE_TTL": "24h"})); err != nil {
+		t.Fatalf("24h is the ceiling itself and must be accepted: %v", err)
+	}
+}
+
+func TestInvalidResilienceFails(t *testing.T) {
+	cases := map[string]map[string]string{
+		"timeout not a duration": {"PARTNER_TIMEOUT": "2"},
+		"zero timeout":           {"PARTNER_TIMEOUT": "0s"},
+		"zero failures":          {"BREAKER_CONSECUTIVE_FAILURES": "0"},
+		"failures not a number":  {"BREAKER_CONSECUTIVE_FAILURES": "six"},
+		"negative open duration": {"BREAKER_OPEN_DURATION": "-1s"},
+		"zero half-open calls":   {"BREAKER_HALF_OPEN_MAX_CALLS": "0"},
+		"ttl not a duration":     {"CACHE_TTL": "1 hour"},
+	}
 	for name, vars := range cases {
 		t.Run(name, func(t *testing.T) {
 			if _, err := LoadConfig(env(vars)); err == nil {

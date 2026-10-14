@@ -1,0 +1,71 @@
+{
+ "query": "histogram_quantile(0.95, sum by (partner, le) (rate(quotation_partner_duration_seconds_bucket{outcome!=\"short_circuited\"}[1m])))",
+ "start": 1791950480.0509546,
+ "end": 1791950600.0509546,
+ "step": "5s",
+ "response": {
+  "status": "success",
+  "data": {
+   "resultType": "matrix",
+   "result": [
+    {
+     "metric": {
+      "partner": "partner-degrading"
+     },
+     "values": [
+      [
+       1791950590,
+       "0.1475"
+      ],
+      [
+       1791950595,
+       "0.1475"
+      ],
+      [
+       1791950600,
+       "0.1475"
+      ]
+     ]
+    },
+    {
+     "metric": {
+      "partner": "partner-flaky"
+     },
+     "values": [
+      [
+       1791950590,
+       "0.2301459169147146"
+      ],
+      [
+       1791950595,
+       "0.22910642728058433"
+      ],
+      [
+       1791950600,
+       "0.22865332543577593"
+      ]
+     ]
+    },
+    {
+     "metric": {
+      "partner": "partner-slow"
+     },
+     "values": [
+      [
+       1791950590,
+       "1.7375"
+      ],
+      [
+       1791950595,
+       "1.7375"
+      ],
+      [
+       1791950600,
+       "1.7375"
+      ]
+     ]
+    }
+   ]
+  }
+ }
+}

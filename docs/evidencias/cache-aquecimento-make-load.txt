@@ -1,0 +1,21 @@
+$ make down && docker compose up -d --build --wait && make load ARGS="-concurrency 1 -baseline 0 -requests 600 -distinct 40 -duration 5m"
+# equivalente executado: docker compose down -v && docker compose up -d --build --wait && docker compose run --rm loadgen -concurrency 1 -baseline 0 -requests 600 -distinct 40 -duration 5m
+# VARIACAO DECLARADA DA CARGA: na carga padrao o baseline dura 8s e a carga 0,3s, menos que um intervalo de exportacao (10s), e o grafico
+# vira um plato. Aqui 40 riscos distintos, 1 em voo: ~70s de cache frio (hit rate 0) e depois o aquecimento. O valor final e propriedade da carga;
+# o hit rate da secao 8 do SAD sai do pressuposto P-1 (recotacao), nao daqui.
+# executado em 2026-10-14 13:14 UTC
+
+load: 600 requests, 1 at a time...
+
+loadgen · http://quotation-api:8080/quotes · tenant corretora-a · 40 distinct quotes
+
+load — 600 requests, 1 in flight, 13:13:03 UTC to 13:14:10 UTC
+  success        600 of 600 (100%)
+  latency        p50 0ms   p95 1.54s   p99 1.68s   max 1.70s
+  throughput     9.0 req/s in 66.76s
+
+where to look
+  Jaeger         http://localhost:16686 · service quotation-api · operation POST /quotes
+  load window    13:13:03 UTC to 13:14:10 UTC (sort by longest first)
+  step by step   docs/roteiro-cenario-de-falha.md
+

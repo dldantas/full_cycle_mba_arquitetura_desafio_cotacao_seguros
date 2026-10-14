@@ -10,9 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/cache"
 	"github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/partner"
 	"github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/platform"
 	"github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/quotation"
+	"github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/resilience"
 )
 
 func main() {
@@ -29,8 +31,27 @@ func main() {
 		log.Fatalf("telemetry: %v", err)
 	}
 
+	// A fatia do docs/sad.md: timeout e um breaker por parceira na fronteira (secao 4.1), cache por
+	// parceira com a corretora na chave (4.2), resposta parcial como fallback (4.3) e as tres parceiras
+	// em paralelo (4.4). Os numeros vem de cfg.Resilience, cujos defaults sao os do SAD.
+	res := cfg.Resilience
+	client := partner.NewClient(
+		partner.WithTimeout(res.PartnerTimeout),
+		partner.WithBreakers(cfg.Partners, resilience.Settings{
+			ConsecutiveFailures: res.BreakerFailures,
+			OpenFor:             res.BreakerOpenFor,
+			HalfOpenMaxCalls:    res.BreakerHalfOpenCalls,
+		}),
+	)
+	quoteCache := cache.NewRedis(res.RedisAddr)
+	defer func() { _ = quoteCache.Close() }()
+
 	api := quotation.NewAPI(
-		quotation.NewService(cfg.Partners, partner.NewClient()),
+		quotation.NewService(cfg.Partners, client,
+			quotation.WithCache(quoteCache, res.CacheTTL),
+			quotation.WithPartialResponse(),
+			quotation.WithParallelCalls(),
+		),
 		cfg.Tenants,
 	)
 
@@ -53,8 +74,9 @@ func main() {
 		}
 	}()
 
-	log.Printf("quotation-api listening on %s | partners=%d brokers=%v",
-		server.Addr, len(cfg.Partners), cfg.Tenants)
+	log.Printf("quotation-api listening on %s | partners=%d brokers=%v | timeout=%s breaker=%d failures/%s open/%d half-open | cache ttl=%s redis=%s",
+		server.Addr, len(cfg.Partners), cfg.Tenants, res.PartnerTimeout, res.BreakerFailures,
+		res.BreakerOpenFor, res.BreakerHalfOpenCalls, res.CacheTTL, res.RedisAddr)
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("server stopped: %v", err)
 	}

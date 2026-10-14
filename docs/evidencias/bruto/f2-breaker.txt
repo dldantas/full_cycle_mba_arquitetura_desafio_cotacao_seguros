@@ -1,0 +1,27 @@
+ Container cotacao-jaeger  Running
+ Container cotacao-partner-flaky  Running
+ Container cotacao-redis  Running
+ Container cotacao-partner-slow  Running
+ Container cotacao-otel-collector  Running
+ Container cotacao-partner-degrading  Running
+ Container cotacao-quotation-api  Running
+ Container cotacao-partner-slow  Waiting
+ Container cotacao-partner-flaky  Waiting
+ Container cotacao-partner-degrading  Waiting
+ Container cotacao-partner-flaky  Healthy
+ Container cotacao-partner-degrading  Healthy
+ Container cotacao-partner-slow  Healthy
+load: 140 requests, 1 at a time...
+
+loadgen · http://quotation-api:8080/quotes · tenant corretora-a · 100000 distinct quotes
+
+load — 140 requests, 1 in flight, 04:04:01 UTC to 04:07:46 UTC
+  success        140 of 140 (100%)
+  latency        p50 1.62s   p95 1.69s   p99 1.70s   max 1.70s
+  throughput     0.6 req/s in 225.47s
+
+where to look
+  Jaeger         http://localhost:16686 · service quotation-api · operation POST /quotes
+  load window    04:04:01 UTC to 04:07:46 UTC (sort by longest first)
+  step by step   docs/roteiro-cenario-de-falha.md
+

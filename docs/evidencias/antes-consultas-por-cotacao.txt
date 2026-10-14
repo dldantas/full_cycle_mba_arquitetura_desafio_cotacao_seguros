@@ -1,0 +1,11 @@
+# ANTES — consultas compradas x cotacoes entregues, mesma sessao do antes-make-reproduce.txt (2026-10-14 ~03:08 UTC)
+# janela: [15m] cobrindo a execucao inteira (baseline + carga)
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (server_address, http_response_status_code) (max_over_time(http_client_request_duration_seconds_count[15m]))'
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"http_response_status_code":"200","server_address":"partner-degrading"},"value":[1791947315.272,"125"]},{"metric":{"http_response_status_code":"200","server_address":"partner-flaky"},"value":[1791947315.272,"125"]},{"metric":{"http_response_status_code":"200","server_address":"partner-slow"},"value":[1791947315.272,"210"]},{"metric":{"http_response_status_code":"503","server_address":"partner-flaky"},"value":[1791947315.272,"85"]}]}}
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (http_response_status_code) (max_over_time(http_server_request_duration_seconds_count{http_route="/quotes"}[15m]))'
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"http_response_status_code":"200"},"value":[1791947315.410,"125"]},{"metric":{"http_response_status_code":"502"},"value":[1791947315.410,"85"]}]}}
+
+# leitura: 545 consultas (210 slow + 210 flaky + 125 degrading) para 125 cotacoes entregues (200) e 85 recusadas (502)
+#   = 4,36 consultas compradas por cotacao entregue; 170 consultas (85 slow + 85 flaky com 503) pagas e jogadas fora

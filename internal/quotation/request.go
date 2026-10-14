@@ -3,6 +3,7 @@ package quotation
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/partner"
 )
@@ -61,8 +62,33 @@ type partnerRequest struct {
 	Request
 }
 
+// Response e o contrato do POST /quotes. Os campos degraded e unavailable sao o fallback de resposta
+// parcial (docs/sad.md, secao 4.3): a corretora sabe, lendo o corpo, que faltou parceira e por que.
+// Cada cotacao diz de onde veio (source) e com que idade (age_seconds), e o quote_id e sempre o que a
+// parceira emitiu: premio e sempre de parceira ou de cache rastreavel, nunca calculado aqui.
 type Response struct {
-	TenantID  string          `json:"tenant_id"`
-	Quotes    []partner.Quote `json:"quotes"`
-	ElapsedMs int64           `json:"elapsed_ms"`
+	TenantID    string        `json:"tenant_id"`
+	Quotes      []Offer       `json:"quotes"`
+	Degraded    bool          `json:"degraded"`
+	Unavailable []Unavailable `json:"unavailable,omitempty"`
+	ElapsedMs   int64         `json:"elapsed_ms"`
+}
+
+const (
+	SourcePartner = "partner"
+	SourceCache   = "cache"
+)
+
+type Offer struct {
+	partner.Quote
+	Source     string    `json:"source"`
+	QuotedAt   time.Time `json:"quoted_at"`
+	AgeSeconds int64     `json:"age_seconds"`
+}
+
+// Unavailable diz qual parceira ficou de fora e por que: short_circuited (breaker aberto, a parceira
+// nem foi chamada), timeout (passou de PARTNER_TIMEOUT), error (5xx ou falha de transporte).
+type Unavailable struct {
+	Partner string `json:"partner"`
+	Reason  string `json:"reason"`
 }

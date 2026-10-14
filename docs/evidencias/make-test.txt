@@ -1,0 +1,110 @@
+# make test e make smoke com o codigo final, executados em 2026-10-14 13:15 UTC dentro do container golang:1.25
+# (make e go nao estao instalados no host Windows):
+#   docker run --rm -v "$PWD":/src -w /src golang:1.25 sh -c "make test; go test -count=1 -v ./internal/...; make smoke"
+# a suite inteira passa: os testes que ja vinham (cmd/loadgen, cmd/partner-mock, internal/*) e os desta entrega
+
+go version go1.25.14 linux/amd64
+
+$ make test
+go test ./...
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/cmd/loadgen	1.756s
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/cmd/partner-mock	0.119s
+?   	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/cmd/quotation-api	[no test files]
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/cache	0.017s
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/partner	0.153s
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/platform	0.007s
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/quotation	0.131s
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/resilience	0.004s
+
+$ go test -count=1 -v ./internal/...   # detalhe por teste
+--- PASS: TestEntryLivesExactlyTheTTL (0.00s)
+--- PASS: TestNoWriteWithoutTTL (0.00s)
+--- PASS: TestRedisDownIsAnErrorNotAMiss (0.00s)
+PASS
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/cache	0.011s
+--- PASS: TestBreakerOpensInsideTheBurstAndStopsCallingThePartner (0.02s)
+--- PASS: TestTimeoutCountsAsFailureForTheBreaker (0.12s)
+--- PASS: TestCallerCancellationDoesNotOpenTheBreaker (0.00s)
+--- PASS: TestQuoteReadsThePartnerResponse (0.00s)
+--- PASS: TestQuoteIdentifiesThePartnerThatFailed (0.00s)
+--- PASS: TestQuoteFailsOnUnreadableResponse (0.00s)
+--- PASS: TestQuoteHonoursCancellation (0.00s)
+PASS
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/partner	0.152s
+--- PASS: TestDefaultConfigPointsAtTheComposeEnvironment (0.00s)
+--- PASS: TestConfigReadsPartnersAndTenantsFromTheEnvironment (0.00s)
+--- PASS: TestTelemetryIsOnByDefault (0.00s)
+--- PASS: TestTelemetryReadsTheStandardOTelVariables (0.00s)
+--- PASS: TestTelemetryCanBeTurnedOff (0.00s)
+--- PASS: TestTelemetryOffSkipsEndpointValidation (0.00s)
+--- PASS: TestInvalidConfigFails (0.00s)
+--- PASS: TestResilienceDefaultsAreTheSADNumbers (0.00s)
+--- PASS: TestResilienceReadsTheEnvironment (0.00s)
+--- PASS: TestCacheTTLCannotPassTheCommercialCeiling (0.00s)
+--- PASS: TestInvalidResilienceFails (0.00s)
+PASS
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/platform	0.010s
+--- PASS: TestQuotesReturnsAggregatedQuotes (0.00s)
+--- PASS: TestQuotesRejectsRequestWithoutTenant (0.00s)
+--- PASS: TestQuotesRejectsUnknownBroker (0.00s)
+--- PASS: TestQuotesRejectsInvalidBody (0.00s)
+--- PASS: TestQuotesResponds502WithTheNameOfThePartnerThatWentDown (0.00s)
+--- PASS: TestHealthz (0.00s)
+--- PASS: TestNormalizeFillsDefaultsAndTidiesUp (0.00s)
+--- PASS: TestNormalizeRejectsIncompleteRequest (0.00s)
+--- PASS: TestCacheKeyCarriesTheTenantAndHidesTheRisk (0.00s)
+--- PASS: TestSecondQuoteComesFromCacheWithoutCallingThePartners (0.00s)
+--- PASS: TestPartnerDownBecomesAPartialAnswerThatSaysWhoIsMissing (0.00s)
+--- PASS: TestCachedQuoteCoversAPartnerThatWentDown (0.00s)
+--- PASS: TestNoPartnerAndNoCacheKeepsThe502 (0.00s)
+--- PASS: TestRedisDownFallsBackToThePartners (0.00s)
+--- PASS: TestDegradedAnswerIsVisibleInTheHTTPContract (0.00s)
+--- PASS: TestQuoteAggregatesTheThreePartnersSortedByPremium (0.00s)
+--- PASS: TestQuoteCallsThePartnersSerially (0.12s)
+--- PASS: TestOnePartnerDownBringsDownTheWholeRequest (0.00s)
+--- PASS: TestBrokerGoesInThePartnerRequest (0.00s)
+PASS
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/quotation	0.131s
+--- PASS: TestBreakerWalksTheThreeStates (0.00s)
+--- PASS: TestBreakerHalfOpenFailureReopens (0.00s)
+--- PASS: TestBreakerSuccessResetsTheConsecutiveCount (0.00s)
+--- PASS: TestBreakerIgnoredOutcomeNeitherOpensNorCloses (0.00s)
+--- PASS: TestBreakerDiscardsResultsFromAPreviousState (0.00s)
+PASS
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/internal/resilience	0.003s
+
+$ make smoke
+go test ./cmd/partner-mock -run Feasibility -v
+=== RUN   TestFeasibilityBreakersOpenOnTheDefaultProfile
+=== RUN   TestFeasibilityBreakersOpenOnTheDefaultProfile/3_consecutive_failures
+    feasibility_test.go:132: opened on request 9 (9 partner calls), 13 openings, 4 recoveries, 65 requests short-circuited
+=== RUN   TestFeasibilityBreakersOpenOnTheDefaultProfile/5_consecutive_failures
+    feasibility_test.go:132: opened on request 42 (42 partner calls), 7 openings, 2 recoveries, 35 requests short-circuited
+=== RUN   TestFeasibilityBreakersOpenOnTheDefaultProfile/50%_failures_over_a_window_of_10
+    feasibility_test.go:132: opened on request 10 (10 partner calls), 15 openings, 6 recoveries, 75 requests short-circuited
+=== RUN   TestFeasibilityBreakersOpenOnTheDefaultProfile/60%_failures_over_a_window_of_20
+    feasibility_test.go:132: opened on request 55 (55 partner calls), 8 openings, 1 recoveries, 80 requests short-circuited
+--- PASS: TestFeasibilityBreakersOpenOnTheDefaultProfile (0.00s)
+    --- PASS: TestFeasibilityBreakersOpenOnTheDefaultProfile/3_consecutive_failures (0.00s)
+    --- PASS: TestFeasibilityBreakersOpenOnTheDefaultProfile/5_consecutive_failures (0.00s)
+    --- PASS: TestFeasibilityBreakersOpenOnTheDefaultProfile/50%_failures_over_a_window_of_10 (0.00s)
+    --- PASS: TestFeasibilityBreakersOpenOnTheDefaultProfile/60%_failures_over_a_window_of_20 (0.00s)
+=== RUN   TestFeasibilityBreakersCloseAgain
+=== RUN   TestFeasibilityBreakersCloseAgain/3_consecutive_failures
+    feasibility_test.go:151: opened on request 9 (9 partner calls), 13 openings, 4 recoveries, 65 requests short-circuited — the breaker flaps, which is the point: a 40% partner neither dies nor recovers for good
+=== RUN   TestFeasibilityBreakersCloseAgain/5_consecutive_failures
+    feasibility_test.go:151: opened on request 42 (42 partner calls), 7 openings, 2 recoveries, 35 requests short-circuited — the breaker flaps, which is the point: a 40% partner neither dies nor recovers for good
+=== RUN   TestFeasibilityBreakersCloseAgain/50%_failures_over_a_window_of_10
+    feasibility_test.go:151: opened on request 10 (10 partner calls), 15 openings, 6 recoveries, 75 requests short-circuited — the breaker flaps, which is the point: a 40% partner neither dies nor recovers for good
+=== RUN   TestFeasibilityBreakersCloseAgain/60%_failures_over_a_window_of_20
+    feasibility_test.go:151: opened on request 55 (55 partner calls), 8 openings, 1 recoveries, 80 requests short-circuited — the breaker flaps, which is the point: a 40% partner neither dies nor recovers for good
+--- PASS: TestFeasibilityBreakersCloseAgain (0.00s)
+    --- PASS: TestFeasibilityBreakersCloseAgain/3_consecutive_failures (0.00s)
+    --- PASS: TestFeasibilityBreakersCloseAgain/5_consecutive_failures (0.00s)
+    --- PASS: TestFeasibilityBreakersCloseAgain/50%_failures_over_a_window_of_10 (0.00s)
+    --- PASS: TestFeasibilityBreakersCloseAgain/60%_failures_over_a_window_of_20 (0.00s)
+=== RUN   TestFeasibilityBurstIsWhereTheDocsSayItIs
+    feasibility_test.go:178: burst of 9 consecutive failures at sequences 49-57, inside a single `make reproduce`
+--- PASS: TestFeasibilityBurstIsWhereTheDocsSayItIs (0.00s)
+PASS
+ok  	github.com/GuilhermeOliveira591/mba_arquitetura_desafio_cotacao_seguros/cmd/partner-mock	0.006s

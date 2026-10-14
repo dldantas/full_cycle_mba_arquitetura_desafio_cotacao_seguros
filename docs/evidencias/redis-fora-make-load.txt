@@ -1,0 +1,50 @@
+# ENSAIO do cenario (a) do SAD, secao 7.2 — Redis parado, carga padrao, codigo final (sem gravacao apos leitura com erro).
+$ make down && docker compose up -d --build --wait && docker compose stop redis && make load
+# equivalente executado: ... && docker compose run --rm --no-deps loadgen   (sem --no-deps o compose religa o redis pelo depends_on)
+# executado em 2026-10-14 04:11 UTC
+
+ Container cotacao-redis  Stopping
+ Container cotacao-redis  Stopped
+baseline: 10 requests, one at a time...
+load: 200 requests, 50 at a time...
+
+loadgen · http://quotation-api:8080/quotes · tenant corretora-a · 5 distinct quotes
+
+baseline — 10 requests, 1 in flight, 04:10:31 UTC to 04:10:49 UTC
+  success        10 of 10 (100%)
+  latency        p50 1.83s   p95 1.90s   p99 1.90s   max 1.90s
+  throughput     0.5 req/s in 18.23s
+
+load — 200 requests, 50 in flight, 04:10:49 UTC to 04:10:57 UTC
+  success        200 of 200 (100%)
+  latency        p50 1.66s   p95 2.21s   p99 2.21s   max 2.24s
+  throughput     26.9 req/s in 7.45s
+
+baseline → load
+  p95 latency    1.90s → 2.21s   1.2x
+  max latency    1.90s → 2.24s   1.2x
+  success        100% → 100%
+  throughput     0.5 → 26.9 req/s
+
+where to look
+  Jaeger         http://localhost:16686 · service quotation-api · operation POST /quotes
+  load window    04:10:49 UTC to 04:10:57 UTC (sort by longest first)
+  step by step   docs/roteiro-cenario-de-falha.md
+
+
+$ docker compose logs -t quotation-api | grep "circuit breaker"
+2026-10-14T04:10:51.963234171Z 2026/10/14 04:10:51 circuit breaker partner-degrading: closed -> open
+2026-10-14T04:11:03.897277404Z 2026/10/14 04:11:03 circuit breaker partner-degrading: open -> half_open
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (partner, result) (quotation_cache_requests_total)'
+  {'partner': 'partner-degrading', 'result': 'error'} = 210
+  {'partner': 'partner-flaky', 'result': 'error'} = 210
+  {'partner': 'partner-slow', 'result': 'error'} = 210
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (partner, outcome) (quotation_partner_duration_seconds_count)'
+  {'outcome': 'success', 'partner': 'partner-degrading'} = 21
+  {'outcome': 'success', 'partner': 'partner-flaky'} = 125
+  {'outcome': 'success', 'partner': 'partner-slow'} = 210
+  {'outcome': 'error', 'partner': 'partner-flaky'} = 85
+  {'outcome': 'short_circuited', 'partner': 'partner-degrading'} = 136
+  {'outcome': 'timeout', 'partner': 'partner-degrading'} = 53

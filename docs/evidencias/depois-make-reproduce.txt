@@ -1,0 +1,30 @@
+$ make down && make reproduce   # equivalente executado: docker compose down -v && docker compose up -d --build --wait && docker compose run --rm --build loadgen
+# DEPOIS — codigo final (timeout 2s, breaker 6/10s/2, cache TTL 1h, resposta parcial, paralelo); mesma maquina e mesma carga padrao do antes
+# executado em 2026-10-14 04:03 UTC
+
+baseline: 10 requests, one at a time...
+load: 200 requests, 50 at a time...
+
+loadgen · http://quotation-api:8080/quotes · tenant corretora-a · 5 distinct quotes
+
+baseline — 10 requests, 1 in flight, 04:02:52 UTC to 04:03:00 UTC
+  success        10 of 10 (100%)
+  latency        p50 196ms   p95 1.68s   p99 1.68s   max 1.68s
+  throughput     1.2 req/s in 8.40s
+
+load — 200 requests, 50 in flight, 04:03:00 UTC to 04:03:01 UTC
+  success        200 of 200 (100%)
+  latency        p50 3ms   p95 202ms   p99 237ms   max 268ms
+  throughput     693.3 req/s in 288ms
+
+baseline → load
+  p95 latency    1.68s → 202ms   0.1x
+  max latency    1.68s → 268ms   0.2x
+  success        100% → 100%
+  throughput     1.2 → 693.3 req/s
+
+where to look
+  Jaeger         http://localhost:16686 · service quotation-api · operation POST /quotes
+  load window    04:03:00 UTC to 04:03:01 UTC (sort by longest first)
+  step by step   docs/roteiro-cenario-de-falha.md
+

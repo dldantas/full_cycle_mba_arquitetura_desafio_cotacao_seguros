@@ -1,0 +1,21 @@
+$ make down && docker compose up -d --build --wait && make load ARGS="-concurrency 1 -baseline 0 -requests 140 -distinct 100000 -duration 9m"
+# equivalente executado: docker compose down -v && docker compose up -d --build --wait && docker compose run --rm loadgen -concurrency 1 -baseline 0 -requests 140 -distinct 100000 -duration 9m
+# VARIACAO DECLARADA DA CARGA, nao dos perfis das parceiras (que seguem os defaults do compose): uma requisicao por vez, cada uma com
+# um risco novo, para todo pedido ser miss e a partner-flaky receber a sequencia deterministica na ordem. Objetivo: ver o breaker
+# abrir na sequencia 54, como preve internal/partner/breaker_test.go. Na carga padrao o cache absorve a partner-flaky e o breaker nao abre.
+# executado em 2026-10-14 04:08 UTC
+
+load: 140 requests, 1 at a time...
+
+loadgen · http://quotation-api:8080/quotes · tenant corretora-a · 100000 distinct quotes
+
+load — 140 requests, 1 in flight, 04:04:01 UTC to 04:07:46 UTC
+  success        140 of 140 (100%)
+  latency        p50 1.62s   p95 1.69s   p99 1.70s   max 1.70s
+  throughput     0.6 req/s in 225.47s
+
+where to look
+  Jaeger         http://localhost:16686 · service quotation-api · operation POST /quotes
+  load window    04:04:01 UTC to 04:07:46 UTC (sort by longest first)
+  step by step   docs/roteiro-cenario-de-falha.md
+

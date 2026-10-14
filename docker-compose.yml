@@ -1,7 +1,7 @@
 # Ambiente local do starter. Um comando (`docker compose up`) precisa deixar tudo de pe,
 # sem conta em cloud provider e sem custo.
 #
-# Sobe a quotation-api, as tres seguradoras parceiras, o Redis (para o cache que ainda nao existe) e
+# Sobe a quotation-api, as tres seguradoras parceiras, o Redis (cache de cotacao por parceira) e
 # a stack de observabilidade ja funcionando:
 #
 #   Jaeger      http://localhost:16686   traces
@@ -26,9 +26,9 @@ x-parceira: &parceira
     retries: 5
 
 services:
-  # A API que o aluno instrumenta. Ela consulta as tres parceiras EM SERIE, sem timeout, sem circuit
-  # breaker, sem cache e sem fallback — o Redis abaixo sobe justamente para o cache que ainda nao
-  # existe. O vazio e o enunciado.
+  # A API. No starter ela consultava as tres parceiras em serie, sem timeout, sem circuit breaker, sem
+  # cache e sem fallback. Depois da entrega (docs/sad.md): paralelo, timeout de 2s, um breaker por
+  # parceira, cache no Redis com a corretora na chave e resposta parcial quando falta parceira.
   quotation-api:
     build:
       context: .
@@ -46,7 +46,19 @@ services:
       # escrever uma linha para ver o trace da requisicao no Jaeger. Para desligar: OTEL_SDK_DISABLED=true.
       OTEL_SERVICE_NAME: quotation-api
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      # Os numeros do docs/sad.md, secao 4 (os mesmos defaults de internal/platform/config.go). Ficam
+      # explicitos aqui porque mudar qualquer um deles e mudanca de arquitetura, nao de ambiente.
+      PARTNER_TIMEOUT: "2s"
+      BREAKER_CONSECUTIVE_FAILURES: "6"
+      BREAKER_OPEN_DURATION: "10s"
+      BREAKER_HALF_OPEN_MAX_CALLS: "2"
+      CACHE_TTL: "1h"
+      REDIS_ADDR: "redis:6379"
     depends_on:
+      # service_started pelo mesmo motivo do Collector: o cache e atalho, nao dependencia. Redis fora
+      # vira miss (fail-open), e a cotacao segue mais cara, nao parada (docs/sad.md, secao 7).
+      redis:
+        condition: service_started
       partner-slow:
         condition: service_healthy
       partner-flaky:

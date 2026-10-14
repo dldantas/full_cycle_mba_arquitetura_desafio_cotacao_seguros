@@ -1,0 +1,33 @@
+# DEPOIS — contadores de negocio da execucao padrao (depois-make-reproduce.txt), mesma sessao, 04:03 UTC
+# contadores OTel cumulativos desde o boot da API; janela = a execucao inteira
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (partner, result) (quotation_cache_requests_total)'
+  {'partner': 'partner-degrading', 'result': 'miss'} = 5
+  {'partner': 'partner-flaky', 'result': 'miss'} = 47
+  {'partner': 'partner-slow', 'result': 'miss'} = 5
+  {'partner': 'partner-degrading', 'result': 'hit'} = 205
+  {'partner': 'partner-flaky', 'result': 'hit'} = 163
+  {'partner': 'partner-slow', 'result': 'hit'} = 205
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum(quotation_cache_requests_total{result="hit"}) / sum(quotation_cache_requests_total)'
+  {} = 0.9095238095238095
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (partner, outcome) (quotation_partner_duration_seconds_count)'
+  {'outcome': 'success', 'partner': 'partner-degrading'} = 5
+  {'outcome': 'success', 'partner': 'partner-flaky'} = 29
+  {'outcome': 'success', 'partner': 'partner-slow'} = 5
+  {'outcome': 'error', 'partner': 'partner-flaky'} = 18
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (server_address, http_response_status_code) (http_client_request_duration_seconds_count)'
+  {'http_response_status_code': '200', 'server_address': 'partner-degrading'} = 5
+  {'http_response_status_code': '200', 'server_address': 'partner-flaky'} = 29
+  {'http_response_status_code': '200', 'server_address': 'partner-slow'} = 5
+  {'http_response_status_code': '503', 'server_address': 'partner-flaky'} = 18
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (http_response_status_code) (http_server_request_duration_seconds_count{http_route="/quotes"})'
+  {'http_response_status_code': '200'} = 210
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=max by (partner) (quotation_partner_circuit_state)'
+  {'partner': 'partner-degrading'} = 0
+  {'partner': 'partner-flaky'} = 0
+  {'partner': 'partner-slow'} = 0

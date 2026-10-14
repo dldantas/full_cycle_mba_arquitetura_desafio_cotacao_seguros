@@ -1,0 +1,31 @@
+{
+ "query": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{http_route=\"/quotes\",http_request_method=\"POST\"}[1m])))",
+ "start": 1791950479.0483568,
+ "end": 1791950599.0483568,
+ "step": "5s",
+ "response": {
+  "status": "success",
+  "data": {
+   "resultType": "matrix",
+   "result": [
+    {
+     "metric": {},
+     "values": [
+      [
+       1791950589,
+       "0.22861607806494083"
+      ],
+      [
+       1791950594,
+       "0.2293584097747566"
+      ],
+      [
+       1791950599,
+       "0.2296569489875221"
+      ]
+     ]
+    }
+   ]
+  }
+ }
+}

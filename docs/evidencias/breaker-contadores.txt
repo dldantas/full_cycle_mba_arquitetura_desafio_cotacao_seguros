@@ -1,0 +1,29 @@
+# contadores da sessao de breaker-make-load-sequencial.txt, 04:08 UTC (cumulativos desde o boot)
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (partner, outcome) (quotation_partner_duration_seconds_count)'
+  {'outcome': 'success', 'partner': 'partner-degrading'} = 140
+  {'outcome': 'success', 'partner': 'partner-flaky'} = 66
+  {'outcome': 'error', 'partner': 'partner-flaky'} = 44
+  {'outcome': 'success', 'partner': 'partner-slow'} = 140
+  {'outcome': 'short_circuited', 'partner': 'partner-flaky'} = 30
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (partner, from, to) (quotation_partner_circuit_transitions_total)'
+  {'from': 'closed', 'partner': 'partner-flaky', 'to': 'open'} = 1
+  {'from': 'half_open', 'partner': 'partner-flaky', 'to': 'open'} = 4
+  {'from': 'open', 'partner': 'partner-flaky', 'to': 'half_open'} = 5
+  {'from': 'half_open', 'partner': 'partner-flaky', 'to': 'closed'} = 1
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (server_address, http_response_status_code) (http_client_request_duration_seconds_count)'
+  {'http_response_status_code': '200', 'server_address': 'partner-degrading'} = 140
+  {'http_response_status_code': '200', 'server_address': 'partner-flaky'} = 66
+  {'http_response_status_code': '200', 'server_address': 'partner-slow'} = 140
+  {'http_response_status_code': '503', 'server_address': 'partner-flaky'} = 44
+
+$ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=sum by (partner) (quotation_partner_duration_seconds_count{outcome!="short_circuited"}) - sum by (partner) (quotation_partner_duration_seconds_bucket{le="2.0",outcome!="short_circuited"})'
+  {'partner': 'partner-degrading'} = 0
+  {'partner': 'partner-flaky'} = 0
+  {'partner': 'partner-slow'} = 0
+# a ultima consulta e (chamadas que sairam) - (chamadas com duracao <= 2s): 0 = nenhuma passou do PARTNER_TIMEOUT
+
+$ # Jaeger API: traces POST /quotes da ultima hora em ordem de inicio; conta spans 'HTTP POST' com server.address=partner-flaky ate o primeiro trace com quotation.circuit.short_circuited=true na partner-flaky
+  140 traces POST /quotes; chamadas HTTP a partner-flaky antes do primeiro curto-circuito: 54
